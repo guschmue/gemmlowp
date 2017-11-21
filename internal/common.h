@@ -25,6 +25,13 @@
 #include <cmath>
 #include <cstdlib>
 
+#ifdef _WIN32
+inline int posix_memalign(void **memptr, size_t alignment, size_t size) {
+  *memptr = _aligned_malloc(size, alignment);
+  return (*memptr == NULL);
+}
+#endif
+
 #include "../profiling/instrumentation.h"
 
 // Our inline assembly path assume GCC/Clang syntax.

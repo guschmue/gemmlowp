@@ -29,6 +29,23 @@
 
 #include "../public/gemmlowp.h"
 
+
+inline double time() {
+#ifdef __APPLE__
+    timeval t;
+    gettimeofday(&t, nullptr);
+    return t.tv_sec + 1e-6 * t.tv_usec;
+#elif _WIN32
+    __int64 wintime; GetSystemTimeAsFileTime((FILETIME*)&wintime);
+    wintime -= 116444736000000000i64;	            //1jan1601 to 1jan1970
+    return wintime / 10000000i64 + wintime % 10000000i64 * 100 * 1e-9;
+#else
+    timespec t;
+    clock_gettime(CLOCK_REALTIME, &t);
+    return t.tv_sec + 1e-9 * t.tv_nsec;
+#endif
+}
+
 namespace gemmlowp {
 
 #define GEMMLOWP_STRINGIFY2(x) #x
@@ -102,6 +119,19 @@ int Random() {
   return dist(RandomEngine());
 }
 
+#ifdef _MSC_VER
+// msvc does not support 8bit types in uniform_int_distribution<>.
+// Take 32 bit uniform_int_distribution<> and only use the lower 8 bits.
+template <typename OperandRange, typename MatrixType>
+void MakeRandom(MatrixType* m) {
+  ScopedProfilingLabel("MakeRandom(matrix)");
+  for (int c = 0; c < m->cols(); c++) {
+    for (int r = 0; r < m->rows(); r++) {
+      (*m)(r, c) = Random() % OperandRange::kMaxValue;
+    }
+  }
+}
+#else
 template <typename OperandRange, typename MatrixType>
 void MakeRandom(MatrixType* m) {
   ScopedProfilingLabel("MakeRandom(matrix)");
@@ -114,6 +144,7 @@ void MakeRandom(MatrixType* m) {
     }
   }
 }
+#endif
 
 template <typename MatrixType>
 void MakeConstant(MatrixType* m, typename MatrixType::Scalar val) {

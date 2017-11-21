@@ -14,7 +14,7 @@ test/benchmark_all_sizes.cc -o /tmp/b -O3 --std=c++11 -fPIE -static \
 #include <random>
 #include <set>
 
-#include "../public/gemmlowp.h"
+#include "test.h"
 
 #if defined GEMMLOWP_ANDROID && defined GEMMLOWP_ARM_32
 // Compilation workaround
@@ -39,77 +39,6 @@ const int kNumThreads = BENCHMARK_NUM_THREADS;
 #else
 const int kNumThreads = 1;
 #endif
-
-double time() {
-  timespec t;
-  clock_gettime(CLOCK_REALTIME, &t);
-  return t.tv_sec + 1e-9 * t.tv_nsec;
-}
-
-namespace gemmlowp {
-
-// gemmlowp itself doesn't have a Matrix class, only a MatrixMap class,
-// since it only maps existing data. In tests though, we need to
-// create our own matrices.
-template <typename tScalar, MapOrder tOrder>
-class Matrix : public MatrixMap<tScalar, tOrder> {
- public:
-  typedef MatrixMap<tScalar, tOrder> Map;
-  typedef MatrixMap<const tScalar, tOrder> ConstMap;
-  typedef typename Map::Scalar Scalar;
-  static const MapOrder Order = tOrder;
-  using Map::cols_;
-  using Map::data_;
-  using Map::kOrder;
-  using Map::rows_;
-  using Map::stride_;
-
- public:
-  Matrix() : Map(nullptr, 0, 0, 0) {}
-
-  Matrix(int rows, int cols) : Map(nullptr, 0, 0, 0) { Resize(rows, cols); }
-
-  Matrix(const Matrix& other) : Map(nullptr, 0, 0, 0) { *this = other; }
-
-  Matrix& operator=(const Matrix& other) {
-    Resize(other.rows_, other.cols_);
-    std::memcpy(data_, other.data_, size() * sizeof(Scalar));
-    return *this;
-  }
-
-  friend bool operator==(const Matrix& a, const Matrix& b) {
-    return a.rows_ == b.rows_ && a.cols_ == b.cols_ &&
-           !std::memcmp(a.data_, b.data_, a.size());
-  }
-
-  void Resize(int rows, int cols) {
-    rows_ = rows;
-    cols_ = cols;
-    stride_ = kOrder == MapOrder::ColMajor ? rows : cols;
-    storage.resize(size());
-    data_ = storage.data();
-  }
-
-  int size() const { return rows_ * cols_; }
-
-  Map& map() { return *static_cast<Map*>(this); }
-
-  ConstMap const_map() const { return ConstMap(data_, rows_, cols_, stride_); }
-
- protected:
-  std::vector<Scalar> storage;
-};
-
-template <typename MatrixType>
-void MakeZero(MatrixType* m) {
-  for (int c = 0; c < m->cols(); c++) {
-    for (int r = 0; r < m->rows(); r++) {
-      (*m)(r, c) = 128;
-    }
-  }
-}
-
-}  // end namespace gemmlowp
 
 template <typename BitDepthParams>
 float benchmark_8bit(int rows, int depth, int cols) {
@@ -224,7 +153,11 @@ bool operator<(const Shape& shape1, const Shape& shape2) {
 
 float benchmark(const Shape& shape) {
   if (kCooldownBeforeBenchmarkSecs) {
+#ifdef _WIN32
+    Sleep(kCooldownBeforeBenchmarkSecs);
+#else
     sleep(kCooldownBeforeBenchmarkSecs);
+#endif
   }
 #if defined BENCHMARK_8bit
   // Benchmark the fast 8bit path, using L8R8WithLhsNonzeroBitDepthParams.

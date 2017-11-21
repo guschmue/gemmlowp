@@ -19,7 +19,11 @@
 #ifndef GEMMLOWP_INTERNAL_MULTI_THREAD_GEMM_H_
 #define GEMMLOWP_INTERNAL_MULTI_THREAD_GEMM_H_
 
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include <unistd.h>
+#endif
 #include <vector>
 
 #include "single_thread_gemm.h"
@@ -57,7 +61,9 @@ inline int Do256NOPs() {
 #undef GEMMLOWP_NOP
 
 inline void WriteBarrier() {
-#ifdef GEMMLOWP_ARM_32
+#if defined(_MSC_VER)
+  MemoryBarrier();
+#elif defined(GEMMLOWP_ARM_32)
   asm volatile("" ::: "memory");
 #elif defined(GEMMLOWP_ARM_64)
   asm volatile("dmb ishst" ::: "memory");
@@ -69,7 +75,9 @@ inline void WriteBarrier() {
 }
 
 inline void ReadBarrier() {
-#ifdef GEMMLOWP_ARM_32
+#if defined(_MSC_VER)
+  MemoryBarrier();
+#elif defined(GEMMLOWP_ARM_32)
   asm volatile("" ::: "memory");
 #elif defined(GEMMLOWP_ARM_64)
   asm volatile("dmb ishld" ::: "memory");
@@ -197,7 +205,9 @@ class BlockingCounter {
 #else
       // This is likely unnecessary, but is kept to ensure regressions are not
       // introduced.
+#ifndef _WIN32
       asm volatile("" ::: "memory");
+#endif
 #endif
       const std::size_t count_value = count_;
       if (count_value) {
@@ -566,10 +576,15 @@ inline int HowManyThreads(int max_num_threads, int rows, int cols, int depth) {
     // This is expensive to query so we do it only once.
     // Too bad for dynamicness. Also, we dont use the c++11 standard getter
     // because Google's coding style currently bans #include <thread_>.
+#ifndef _WIN32
     static const int hardware_threads_count =
-        static_cast<int>(sysconf(_SC_NPROCESSORS_CONF));
-
+      static_cast<int>(sysconf(_SC_NPROCESSORS_CONF));
     max_count = hardware_threads_count;
+#else
+    SYSTEM_INFO sysinfo;
+    GetSystemInfo(&sysinfo);
+    max_count = sysinfo.dwNumberOfProcessors;
+#endif
   }
 
   // Basic calculation: take into account max pool size, and

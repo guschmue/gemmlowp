@@ -14,7 +14,11 @@
 
 #include "test.h"
 
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include <unistd.h>
+#endif
 #include <array>
 #include <cstdint>
 #include <cstdlib>

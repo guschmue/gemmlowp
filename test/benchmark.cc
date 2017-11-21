@@ -12,7 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include <unistd.h>
+#endif
 #ifdef __APPLE__
 #include <sys/time.h>
 #endif
@@ -43,18 +47,6 @@
 #endif
 
 namespace gemmlowp {
-
-double time() {
-#ifdef __APPLE__
-  timeval t;
-  gettimeofday(&t, nullptr);
-  return t.tv_sec + 1e-6 * t.tv_usec;
-#else
-  timespec t;
-  clock_gettime(CLOCK_REALTIME, &t);
-  return t.tv_sec + 1e-9 * t.tv_nsec;
-#endif
-}
 
 const double min_accurate_duration = 1e-1;
 const std::size_t min_working_set_size = 16 * 1024 * 1024;
