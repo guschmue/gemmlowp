@@ -22,7 +22,7 @@ if(WIN32)
   add_definitions(-DNOMINMAX -DWIN64 -DWIN32_LEAN_AND_MEAN -DNOGDI)
   add_definitions(/bigobj /nologo /EHsc /GF /MP /Gm- /wd4800 /wd4805)
   if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    # if we compile for windows with clang, we can allow inline asm 
+    # if we compile for windows with clang, we can allow inline asm
     add_definitions(-DGEMMLOWP_ALLOW_INLINE_ASM)
   endif()
 else()
